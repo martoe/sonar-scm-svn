@@ -19,45 +19,64 @@
  */
 package org.sonar.plugins.scm.svn;
 
+import static java.util.stream.Collectors.*;
+
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+
 import org.sonar.api.batch.scm.BlameLine;
 import org.tmatesoft.svn.core.SVNException;
 import org.tmatesoft.svn.core.wc.ISVNAnnotateHandler;
 
 public class AnnotationHandler implements ISVNAnnotateHandler {
 
-  private List<BlameLine> lines = new ArrayList<>();
+	private List<BlameLine> lines = new ArrayList<>();
 
-  @Override
-  public void handleEOF() {
-    // Not used
-  }
+	@Override
+	public void handleEOF() {
+		// Not used
+	}
 
-  @Override
-  public void handleLine(Date date, long revision, String author, String line) throws SVNException {
-    // deprecated
-  }
+	@Override
+	public void handleLine(Date date, long revision, String author, String line) throws SVNException {
+		// deprecated
+	}
 
-  @Override
-  public void handleLine(Date date, long revision, String author, String line, Date mergedDate,
-    long mergedRevision, String mergedAuthor, String mergedPath, int lineNumber) throws SVNException {
-    lines.add(new BlameLine().date(mergedDate).revision(Long.toString(mergedRevision)).author(mergedAuthor));
-  }
+	@Override
+	public void handleLine(Date date, long revision, String author, String line, Date mergedDate,
+		long mergedRevision, String mergedAuthor, String mergedPath, int lineNumber) throws SVNException {
+		lines.add(new BlameLine().date(mergedDate).revision(Long.toString(mergedRevision)).author(normalizeAuthor(mergedAuthor)));
+	}
 
-  @Override
-  public boolean handleRevision(Date date, long revision, String author, File contents) throws SVNException {
-    /*
+	static String normalizeAuthor(String author) {
+		if (author == null) {
+			return null;
+		}
+		String[] names = removeEmail(author).toLowerCase().split("[^a-zäöüß0-9\\-]");
+		return Arrays.stream(names)
+			.filter(s -> !s.isEmpty())
+			.sorted()
+			.collect(joining(" "));
+	}
+
+	private static String removeEmail(String value) {
+		return value.replaceAll("@.*$", "");
+	}
+
+	@Override
+	public boolean handleRevision(Date date, long revision, String author, File contents) throws SVNException {
+	  /*
      * We do not want our file to be annotated for each revision of the range, but only for the last
      * revision of it, so we return false
      */
-    return false;
-  }
+		return false;
+	}
 
-  public List<BlameLine> getLines() {
-    return lines;
-  }
+	public List<BlameLine> getLines() {
+		return lines;
+	}
 
 }
